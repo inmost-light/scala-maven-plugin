@@ -35,6 +35,7 @@ import scala_maven_dependency.*;
 import scala_maven_executions.JavaMainCaller;
 import scala_maven_executions.JavaMainCallerByFork;
 import scala_maven_executions.JavaMainCallerInProcess;
+import scala_maven_executions.JavaMainCallerInProcess.EntryPoint;
 import util.FileUtils;
 import util.JavaLocator;
 
@@ -507,6 +508,14 @@ public abstract class ScalaMojoSupport extends AbstractMojo {
   }
 
   /**
+   * The {@link EntryPoint} this goal invokes for in-process execution. Defaults to {@link
+   * EntryPoint#MAIN}; subclasses may override to select a different entry point.
+   */
+  protected EntryPoint inProcessEntryPoint() {
+    return EntryPoint.MAIN;
+  }
+
+  /**
    * Get a {@link JavaMainCaller} used invoke a Java process. Typically this will be one of the
    * Scala utilities (Compiler, ScalaDoc, REPL, etc.).
    *
@@ -568,7 +577,9 @@ public abstract class ScalaMojoSupport extends AbstractMojo {
         cmd.addJvmArgs("-Xbootclasspath/a:" + toolcp);
       }
     } else {
-      cmd = new JavaMainCallerInProcess(getLog(), mainClass, toolcp, null, null);
+      cmd =
+          new JavaMainCallerInProcess(
+              getLog(), mainClass, toolcp, null, null, inProcessEntryPoint());
     }
     return cmd;
   }
