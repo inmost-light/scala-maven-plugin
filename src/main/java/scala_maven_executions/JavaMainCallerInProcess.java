@@ -124,7 +124,8 @@ public class JavaMainCallerInProcess extends JavaMainCallerSupport {
 
   @Override
   public void redirectToLog() {
-    mavenLogger.warn("redirection to log is not supported for 'inProcess' mode");
+    // No-op: in-process the compiler runs in the Maven JVM, so its output already reaches the
+    // same console/log — there is no separate child-process stream to redirect.
   }
 
   /** Which entry point {@link JavaMainCallerInProcess} invokes on the target class. */
