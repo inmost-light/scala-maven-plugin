@@ -9,6 +9,8 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.util.ArrayList;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import org.apache.maven.plugin.logging.Log;
 import org.codehaus.plexus.util.StringUtils;
 
@@ -22,7 +24,12 @@ import org.codehaus.plexus.util.StringUtils;
  */
 public class JavaMainCallerInProcess extends JavaMainCallerSupport {
 
+  // Cache compiler classloaders by classpath so the compiler loads once and stays JIT-warm across
+  // modules. Safe to share across concurrent compiles because each uses a fresh driver instance.
+  private static final Map<String, ClassLoader> COMPILER_CLASSLOADERS = new ConcurrentHashMap<>();
+
   private final EntryPoint entryPoint;
+  private final String driverClassName;
   private ClassLoader _cl;
 
   public JavaMainCallerInProcess(
@@ -31,12 +38,24 @@ public class JavaMainCallerInProcess extends JavaMainCallerSupport {
       String classpath,
       String[] jvmArgs,
       String[] args,
-      EntryPoint entryPoint)
+      EntryPoint entryPoint,
+      boolean reuseInProcessCompiler,
+      String driverClassName)
       throws Exception {
     super(mavenLogger, mainClassName, "", jvmArgs, args);
     this.entryPoint = entryPoint;
+    this.driverClassName = driverClassName;
+    // Reuse a shared warm classloader only for the compiler (PROCESS); the MAIN path invokes a
+    // singleton main and so gets a fresh classloader.
+    boolean reuse = reuseInProcessCompiler && entryPoint == EntryPoint.PROCESS;
+    _cl =
+        reuse
+            ? COMPILER_CLASSLOADERS.computeIfAbsent(
+                classpath, cp -> buildClassLoader(cp, mavenLogger))
+            : buildClassLoader(classpath, mavenLogger);
+  }
 
-    // Pull out classpath and create class loader
+  private static ClassLoader buildClassLoader(String classpath, Log mavenLogger) {
     ArrayList<URL> urls = new ArrayList<>();
     for (String path : classpath.split(File.pathSeparator)) {
       try {
@@ -46,7 +65,7 @@ public class JavaMainCallerInProcess extends JavaMainCallerSupport {
         mavenLogger.error(e);
       }
     }
-    _cl = new URLClassLoader(urls.toArray(new URL[] {}), null);
+    return new URLClassLoader(urls.toArray(new URL[] {}), null);
   }
 
   @Override
@@ -95,7 +114,7 @@ public class JavaMainCallerInProcess extends JavaMainCallerSupport {
     }
     switch (entryPoint) {
       case PROCESS:
-        return ProcessHelper.runProcess(mainClassName, args, _cl);
+        return ProcessHelper.runProcess(driverClassName, args, _cl);
       case MAIN:
       default:
         MainHelper.runMain(mainClassName, args, _cl);
@@ -113,8 +132,8 @@ public class JavaMainCallerInProcess extends JavaMainCallerSupport {
     /** The standard {@code static void main(String[])}. */
     MAIN,
     /**
-     * The compiler's non-exiting {@code static process(String[])} — the counterpart of {@code main}
-     * that returns instead of calling {@code System.exit}, so an in-process build survives it.
+     * The compiler's non-exiting {@code process(String[])} — the counterpart of {@code main} that
+     * returns instead of calling {@code System.exit}, so an in-process build survives it.
      */
     PROCESS
   }

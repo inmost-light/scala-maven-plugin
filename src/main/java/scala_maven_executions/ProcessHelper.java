@@ -14,15 +14,18 @@ import java.util.List;
  */
 public class ProcessHelper {
 
-  /** Runs {@code mainClassName}'s {@code process(String[])} in-process; {@code true} on success. */
-  static boolean runProcess(String mainClassName, List<String> args, ClassLoader cl)
+  /** Runs {@code driverClassName}'s instance {@code process(String[])}; {@code true} on success. */
+  static boolean runProcess(String driverClassName, List<String> args, ClassLoader cl)
       throws Exception {
     if (cl == null) {
       cl = Thread.currentThread().getContextClassLoader();
     }
-    // The compiler objects (nsc Main, dotty Main) expose process as a static forwarder.
-    Method process = cl.loadClass(mainClassName).getMethod("process", String[].class);
-    Object result = process.invoke(null, new Object[] {args.toArray(new String[] {})});
+    // A fresh driver instance per compile: the driver holds per-run state in instance fields, so
+    // sharing one across concurrent compiles is unsafe.
+    Class<?> driverClass = cl.loadClass(driverClassName);
+    Object driver = driverClass.getDeclaredConstructor().newInstance();
+    Method process = driverClass.getMethod("process", String[].class);
+    Object result = process.invoke(driver, new Object[] {args.toArray(new String[] {})});
     // nsc's process returns a Boolean success flag; dotty's returns a Reporter.
     if (result instanceof Boolean) {
       return (Boolean) result;

@@ -177,6 +177,13 @@ public abstract class ScalaMojoSupport extends AbstractMojo {
   @Parameter(defaultValue = "true")
   protected boolean fork = true;
 
+  /**
+   * When compiling in-process ({@code fork=false}), reuse the loaded Scala compiler across modules
+   * to keep it JIT-warm instead of loading a fresh one per module.
+   */
+  @Parameter(property = "reuseInProcessCompiler", defaultValue = "true")
+  protected boolean reuseInProcessCompiler = true;
+
   /** Force the use of an external ArgFile to run any forked process. */
   @Parameter(defaultValue = "false")
   protected boolean forceUseArgFile = false;
@@ -579,7 +586,14 @@ public abstract class ScalaMojoSupport extends AbstractMojo {
     } else {
       cmd =
           new JavaMainCallerInProcess(
-              getLog(), mainClass, toolcp, null, null, inProcessEntryPoint());
+              getLog(),
+              mainClass,
+              toolcp,
+              null,
+              null,
+              inProcessEntryPoint(),
+              reuseInProcessCompiler,
+              findScalaContext().compilerDriverClassName());
     }
     return cmd;
   }
