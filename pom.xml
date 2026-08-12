@@ -2,7 +2,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>net.alchim31.maven</groupId>
   <artifactId>scala-maven-plugin</artifactId>
-  <version>4.9.11-SNAPSHOT</version>
+  <version>4.9.11-neo4j-nofork</version>
   <packaging>maven-plugin</packaging>
 
   <name>scala-maven-plugin</name>
@@ -686,6 +686,7 @@
                 <pomExclude>**/mi*/pom.xml</pomExclude>
                 <pomExclude>**/test_macroparadise/macro/pom.xml</pomExclude>
                 <pomExclude>**/test_macroparadise/core/pom.xml</pomExclude>
+                <pomExclude>**/test_inprocess_multimodule*/mod-*/pom.xml</pomExclude>
                 <pomExclude>scalac-plugin/src/it/**/pom.xml</pomExclude>
               </pomExcludes>
               <preBuildHookScript>setup.groovy</preBuildHookScript>
